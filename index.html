@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101a25">
+<title>Derin Maden</title>
+<style>
+:root{--bg:#101a25;--panel:#1b2a38;--gold:#ffc857;--mint:#64d8a5;--muted:#9fb0bd}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f4f7f8;font:15px system-ui,-apple-system,sans-serif;overflow:hidden}
+#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+.top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding-top:10px}
+.brand,.stat,.panel{background:#142331eF;border:1px solid #ffffff18;box-shadow:0 8px 24px #0005;border-radius:15px;padding:10px 13px;backdrop-filter:blur(8px)}
+.brand strong{display:block;color:var(--gold);font-size:17px;letter-spacing:.5px}.brand small{color:var(--muted)}
+.stats{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.stat{text-align:center;min-width:82px;padding:8px 10px}.stat small{display:block;color:var(--muted);font-size:11px}.stat b{font-size:16px}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-bottom:12px;pointer-events:auto}
+.panel{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px}
+.panel span{color:var(--muted);font-size:12px}.panel b{color:var(--mint)}
+button{border:0;border-radius:13px;padding:13px 10px;background:#263b4c;color:#fff;font-weight:700;font-size:14px;box-shadow:0 4px 0 #101a25;touch-action:manipulation}
+button.primary{background:var(--gold);color:#35260a}button:active{transform:translateY(2px);box-shadow:0 2px 0 #101a25}button:disabled{opacity:.45}
+#notice{position:fixed;left:50%;top:86px;transform:translateX(-50%);background:#142331ed;border:1px solid #ffffff22;padding:9px 14px;border-radius:20px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+@media(min-width:700px){.hud{padding:18px}.bottom{max-width:520px;margin:0 auto 10px;width:100%;grid-template-columns:repeat(4,1fr)}.panel{grid-column:1/-1}.brand strong{font-size:20px}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="hud">
+ <div class="top">
+  <div class="brand"><strong>⛏ DERİN MADEN</strong><small>Yeraltının zenginliklerini keşfet</small></div>
+  <div class="stats">
+   <div class="stat"><small>PARA</small><b id="money">₺0</b></div>
+   <div class="stat"><small>CEVHER</small><b id="ore">0</b></div>
+   <div class="stat"><small>SEVİYE</small><b id="level">1</b></div>
+  </div>
+ </div>
+ <div class="bottom">
+  <div class="panel"><div><b id="shaft">1. Galeri</b><br><span id="workers">İşçi: 0 · Sondaj: Seviye 1</span></div><div style="text-align:right"><b id="rate">0 / sn</b><br><span>Otomatik üretim</span></div></div>
+  <button class="primary" id="mine">⛏ Kazı yap</button>
+  <button id="sell">🚚 Cevheri sat</button>
+  <button id="hire">👷 İşçi al · ₺50</button>
+  <button id="upgrade">⚙ Sondaj geliştir · ₺100</button>
+  <button id="unlock" style="grid-column:1/-1">⬇ Yeni galeri aç · ₺500</button>
+ </div>
+</div>
+<div id="notice"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="this.dataset.failed='1'"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+let money=Number(localStorage.dm_money||0),ore=Number(localStorage.dm_ore||0),workers=Number(localStorage.dm_workers||0),drill=Number(localStorage.dm_drill||1),shaft=Number(localStorage.dm_shaft||1),last=Number(localStorage.dm_time||Date.now());
+const fmt=n=>Math.floor(n).toLocaleString('tr-TR');
+const save=()=>{localStorage.dm_money=money;localStorage.dm_ore=ore;localStorage.dm_workers=workers;localStorage.dm_drill=drill;localStorage.dm_shaft=shaft;localStorage.dm_time=Date.now()};
+const toast=t=>{const n=$('notice');n.textContent=t;n.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>n.style.opacity=0,1700)};
+const rate=()=>workers*(1+drill*.35)*shaft;
+function ui(){
+ $('money').textContent='₺'+fmt(money);$('ore').textContent=fmt(ore);$('level').textContent=shaft;
+ $('shaft').textContent=shaft+'. Galeri';$('workers').textContent='İşçi: '+workers+' · Sondaj: Seviye '+drill;
+ $('rate').textContent=rate().toFixed(1)+' / sn';
+ $('hire').textContent='👷 İşçi al · ₺'+fmt(50+workers*45);$('hire').disabled=money<50+workers*45;
+ $('upgrade').textContent='⚙ Sondaj geliştir · ₺'+fmt(100*drill);$('upgrade').disabled=money<100*drill;
+ $('unlock').textContent='⬇ Yeni galeri aç · ₺'+fmt(500*shaft);$('unlock').disabled=money<500*shaft;
+ $('sell').disabled=ore<1;
+}
+function mine(){ore+=1+drill*.4;toast('Cevher çıkarıldı!');ui();save()}
+$('mine').onclick=mine;
+$('sell').onclick=()=>{if(ore<1)return;let v=Math.floor(ore*10*shaft);money+=v;ore=0;toast('Cevher ₺'+fmt(v)+' karşılığında satıldı');ui();save()};
+$('hire').onclick=()=>{let c=50+workers*45;if(money<c)return;money-=c;workers++;toast('Yeni işçi işe başladı');ui();save()};
+$('upgrade').onclick=()=>{let c=100*drill;if(money<c)return;money-=c;drill++;toast('Sondaj gücü artırıldı');ui();save()};
+$('unlock').onclick=()=>{let c=500*shaft;if(money<c)return;money-=c;shaft++;toast('Yeni galeri açıldı!');ui();buildScene();save()};
+let elapsed=Math.min(8*3600,Math.max(0,(Date.now()-last)/1000));if(elapsed>1&&workers){let earned=rate()*elapsed;ore+=earned;toast('Çevrimdışı üretim: +'+fmt(earned)+' cevher');}ui();save();
+setInterval(()=>{ore+=rate()/10;ui();save()},100);
+let renderer,scene,camera,miner,truck,oreMeshes=[];
+function buildScene(){
+ if(!scene)return;
+ while(scene.children.length>0)scene.remove(scene.children[0]);
+ scene.background=new THREE.Color(0x91b9c5);
+ scene.fog=new THREE.Fog(0x91b9c5,18,38);
+ scene.add(new THREE.HemisphereLight(0xe5f6ff,0x59604c,2));
+ const sun=new THREE.DirectionalLight(0xffedcf,2.2);sun.position.set(-5,10,7);scene.add(sun);
+ const mat=(c,r=.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+ const ground=new THREE.Mesh(new THREE.BoxGeometry(24,.5,18),mat(0x647b60));ground.position.y=-1.2;scene.add(ground);
+ const rock=mat(0x59616a),rock2=mat(0x77818a),wood=mat(0x795334),gold=mat(0xe7a93b),dark=mat(0x273746),metal=mat(0x9baab1);
+ // cutaway mine pit
+ const pit=new THREE.Mesh(new THREE.BoxGeometry(10,2.8,7),mat(0x493c35));pit.position.set(0,-.1,0);scene.add(pit);
+ for(let i=0;i<18;i++){let b=new THREE.Mesh(new THREE.DodecahedronGeometry(.65+Math.random()*.4,0),i%3?rock:rock2);b.position.set(-5+Math.random()*10,.7+Math.random()*1.2,-3.4+Math.random()*6.8);b.scale.y=.7;scene.add(b)}
+ // timber supports
+ for(let z of [-2.7,2.7]){let post=new THREE.Mesh(new THREE.BoxGeometry(.25,2.5,.25),wood);post.position.set(0,.25,z);scene.add(post);let beam=new THREE.Mesh(new THREE.BoxGeometry(10,.22,.25),wood);beam.position.set(0,1.45,z);scene.add(beam)}
+ // conveyor
+ let belt=new THREE.Mesh(new THREE.BoxGeometry(6,.18,1),dark);belt.position.set(6,-.35,1);belt.rotation.z=-.12;scene.add(belt);
+ for(let x=3;x<9;x+=.55){let roller=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.95,8),metal);roller.rotation.x=Math.PI/2;roller.position.set(x,-.48,1);scene.add(roller)}
+ // mine entrance
+ let arch=new THREE.Mesh(new THREE.BoxGeometry(2.4,2.2,.5),wood);arch.position.set(-4,-.1,-3.8);scene.add(arch);
+ let hole=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.6,.55),dark);hole.position.set(-4,-.2,-3.5);scene.add(hole);
+ // drill machine
+ let base=new THREE.Mesh(new THREE.BoxGeometry(1.5,.45,1.1),gold);base.position.set(-1,-.45,1.8);scene.add(base);
+ let mast=new THREE.Mesh(new THREE.BoxGeometry(.25,2,.25),metal);mast.position.set(-1,.65,1.8);mast.rotation.z=-.2;scene.add(mast);
+ let head=new THREE.Mesh(new THREE.ConeGeometry(.35,.8,6),gold);head.rotation.z=Math.PI;head.position.set(-1,-.55,1.8);scene.add(head);
+ // worker figure
+ miner=new THREE.Group();let body=new THREE.Mesh(new THREE.BoxGeometry(.45,.65,.35),mat(0xe08b35));body.position.y=.1;miner.add(body);
+ let headM=new THREE.Mesh(new THREE.SphereGeometry(.22,8,6),mat(0xd6a27b));headM.position.y=.58;miner.add(headM);
+ let helmet=new THREE.Mesh(new THREE.ConeGeometry(.28,.18,8),gold);helmet.position.y=.8;miner.add(helmet);miner.position.set(1,-.55,-1.6);scene.add(miner);
+ // truck
+ truck=new THREE.Group();let cabin=new THREE.Mesh(new THREE.BoxGeometry(.9,.65,.8),gold);cabin.position.set(0,.25,0);truck.add(cabin);
+ let cargo=new THREE.Mesh(new THREE.BoxGeometry(1.2,.5,.9),mat(0x526d7a));cargo.position.set(-.8,.35,0);truck.add(cargo);
+ for(let x of [-.8,.65])for(let z of [-.48,.48]){let w=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.15,10),dark);w.rotation.x=Math.PI/2;w.position.set(x,-.15,z);truck.add(w)}
+ truck.position.set(6,-.8,-2.5);scene.add(truck);
+ for(let i=0;i<Math.min(shaft*3,15);i++){let o=new THREE.Mesh(new THREE.DodecahedronGeometry(.25,0),gold);o.position.set(-2+Math.random()*4,-.65, -1+Math.random()*2);scene.add(o);oreMeshes.push(o)}
+ // distant hills
+ for(let i=0;i<8;i++){let h=new THREE.Mesh(new THREE.ConeGeometry(2+Math.random(),2+Math.random()*2,5),mat(i%2?0x718b75:0x819b7d));h.position.set(-12+i*3,-.5,-9);scene.add(h)}
+}
+function fallback(){
+ const c=$('scene'),ctx=c.getContext('2d');if(!ctx)return;
+ function draw(){let w=c.width=c.clientWidth*devicePixelRatio,h=c.height=c.clientHeight*devicePixelRatio;ctx.scale(devicePixelRatio,devicePixelRatio);let W=c.clientWidth,H=c.clientHeight;
+ ctx.fillStyle='#8db4bd';ctx.fillRect(0,0,W,H);
+ let cx=W/2,cy=H*.48,s=Math.min(W/22,H/15);
+ function iso(x,y,z){return [cx+(x-z)*s*.72,cy+(x+z)*s*.36-y*s]}
+ function poly(points,color){ctx.beginPath();points.forEach((p,i)=>{let q=iso(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.fillStyle=color;ctx.fill()}
+ poly([[-9,-1,-7],[9,-1,-7],[9,-1,7],[-9,-1,7]],'#60775d');
+ poly([[-5,0,-3],[5,0,-3],[5,0,3],[-5,0,3]],'#5b4840');
+ poly([[-5,0,3],[5,0,3],[5,2,3],[-5,2,3]],'#87634a');
+ poly([[-5,0,-3],[-5,0,3],[-5,2,3],[-5,2,-3]],'#72513e');
+ for(let i=0;i<14;i++){let x=-4.5+(i%7)*1.4,z=-2.5+Math.floor(i/7)*4;let p=iso(x,1.7,z);ctx.fillStyle=i%3?'#818b8d':'#b5a18a';ctx.beginPath();ctx.arc(p[0],p[1],s*.45,0,7);ctx.fill()}
+ let p=iso(1,-.2,-1);ctx.fillStyle='#e5a13a';ctx.fillRect(p[0]-s*.2,p[1]-s*.7,s*.4,s*.8);ctx.fillStyle='#f7d16a';ctx.beginPath();ctx.arc(p[0],p[1]-s*.85,s*.22,0,7);ctx.fill();
+ let d=iso(-1,-.2,1);ctx.fillStyle='#c4cdd0';ctx.fillRect(d[0]-s*.12,d[1]-s*1.2,s*.24,s*1.3);
+ ctx.fillStyle='#263746';ctx.fillRect(W*.68,H*.49,W*.22,s*.35);ctx.fillStyle='#e8ad45';ctx.fillRect(W*.72,H*.43,W*.08,s*.4);
+ ctx.setTransform(1,0,0,1,0,0);requestAnimationFrame(draw)}
+ draw();
+}
+function animate(){requestAnimationFrame(animate);if(renderer&&scene){if(miner)miner.position.x=1+Math.sin(Date.now()*.001)*.35;if(truck)truck.position.x=6+Math.sin(Date.now()*.0007)*.6;renderer.render(scene,camera)}}
+if(window.THREE){try{renderer=new THREE.WebGLRenderer({canvas:$('scene'),antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;scene=new THREE.Scene();camera=new THREE.OrthographicCamera(-10,10,7,-7,.1,100);camera.position.set(13,13,15);camera.lookAt(0,0,0);buildScene();animate();addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);let a=innerWidth/innerHeight;camera.left=-8*a;camera.right=8*a;camera.top=8;camera.bottom=-8;camera.updateProjectionMatrix()})}catch(e){fallback()}}else fallback();
+})();
+</script>
+</body></html>
