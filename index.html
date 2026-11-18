@@ -128,7 +128,7 @@ function fallback(){
  draw();
 }
 function animate(){requestAnimationFrame(animate);if(renderer&&scene){if(miner)miner.position.x=1+Math.sin(Date.now()*.001)*.35;if(truck)truck.position.x=6+Math.sin(Date.now()*.0007)*.6;renderer.render(scene,camera)}}
-if(window.THREE){try{renderer=new THREE.WebGLRenderer({canvas:$('scene'),antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;scene=new THREE.Scene();camera=new THREE.OrthographicCamera(-10,10,7,-7,.1,100);camera.position.set(13,13,15);camera.lookAt(0,0,0);buildScene();animate();addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);let a=innerWidth/innerHeight;camera.left=-8*a;camera.right=8*a;camera.top=8;camera.bottom=-8;camera.updateProjectionMatrix()})}catch(e){fallback()}}else fallback();
+fallback();
 })();
 </script>
 </body></html>
